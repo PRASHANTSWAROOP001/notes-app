@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/PRASHANTSWAROOP001/notes-app/internal/notes"
 	"github.com/PRASHANTSWAROOP001/notes-app/internal/user"
+	"github.com/PRASHANTSWAROOP001/notes-app/internal/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -23,8 +25,17 @@ func main() {
 	svc := user.NewService(repo)
 	h := user.NewHandler(svc)
 
+	notesRepo := notes.NewPostgresNotesRepository(db)
+
+	notesSvc := notes.NewNotesService(notesRepo)
+
+	notesHandler := notes.NewNotehandler(notesSvc)
+
 	http.HandleFunc("/auth/register", h.Register)
 	http.HandleFunc("/auth/login", h.Login)
+
+	http.Handle("/notes/create-note", middleware.AuthMiddleware(http.HandlerFunc(notesHandler.CreateNote)))
+	http.Handle("/notes/get-notes", middleware.AuthMiddleware(http.HandlerFunc(notesHandler.GetUserNote)))
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
