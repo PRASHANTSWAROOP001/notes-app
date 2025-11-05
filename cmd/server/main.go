@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/PRASHANTSWAROOP001/notes-app/internal/middleware"
 	"github.com/PRASHANTSWAROOP001/notes-app/internal/notes"
 	"github.com/PRASHANTSWAROOP001/notes-app/internal/user"
-	"github.com/PRASHANTSWAROOP001/notes-app/internal/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
