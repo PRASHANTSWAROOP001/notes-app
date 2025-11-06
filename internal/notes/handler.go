@@ -2,6 +2,7 @@ package notes
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/PRASHANTSWAROOP001/notes-app/internal/middleware"
@@ -37,7 +38,6 @@ type NoteHandler struct {
 func NewNotehandler(svc NotesService) *NoteHandler {
 	return &NoteHandler{service: svc}
 }
-
 
 func (h *NoteHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -82,7 +82,7 @@ func (h *NoteHandler) CreateNote(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (h *NoteHandler) GetUserNote(w http.ResponseWriter, r *http.Request) {
+func (h *NoteHandler) GetUserNotes(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -105,5 +105,75 @@ func (h *NoteHandler) GetUserNote(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	json.NewEncoder(w).Encode(notesData)
+
+}
+
+func (h *NoteHandler) GetUserNoteById(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusBadRequest)
+		return
+	}
+
+	userId, ok := middleware.GetUserID(r.Context())
+
+	if !ok || userId == "" {
+		http.Error(w, "unauthorized request", http.StatusUnauthorized)
+		return
+	}
+
+	noteId := r.URL.Query().Get("id")
+
+	if noteId == " " {
+		http.Error(w, "missing note id param", http.StatusBadRequest)
+		return
+	}
+
+	note, err := h.service.GetUserNote(r.Context(), noteId, userId)
+
+	if err != nil {
+		http.Error(w, "error while getting note", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	json.NewEncoder(w).Encode(note)
+
+}
+
+func (h *NoteHandler) DeleteNote(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "method not allowed", http.StatusBadRequest)
+		return
+	}
+
+	userId, ok := middleware.GetUserID(r.Context())
+
+	if !ok || userId == "" {
+		http.Error(w, "missing auth header", http.StatusUnauthorized)
+		return
+	}
+
+	noteID := r.URL.Query().Get("id")
+
+	if noteID == " " {
+		http.Error(w, "missing note id", http.StatusBadRequest)
+		return
+	}
+
+	err := h.service.DeleteNote(r.Context(), noteID, userId)
+
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error while deleting: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "success",
+		"message": "note deleted successfully",
+	})
 
 }
