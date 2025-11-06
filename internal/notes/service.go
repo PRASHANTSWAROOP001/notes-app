@@ -30,7 +30,6 @@ func NewNotesService(r NotesRepository) NotesService {
 	return &service{repo: r}
 }
 
-
 func (s *service) CreateNote(ctx context.Context, n *Note) (*Note, error) {
 
 	if n.AuthorID == "" {
@@ -82,4 +81,32 @@ func (s *service) GetUserNotes(ctx context.Context, userID string) ([]*NoteSumma
 	}
 
 	return notes, nil
+}
+
+func (s *service) GetUserNote(ctx context.Context, noteID, userID string) (*Note, error) {
+	if userID == "" {
+		return nil, fmt.Errorf("userID is required")
+	}
+
+	note, err := s.repo.GetNoteByID(ctx, noteID, userID)
+
+	if err != nil {
+		return nil, fmt.Errorf("error while fetching the note by id %w", err)
+	}
+
+	return note, nil
+}
+
+func (s *service) DeleteNote(ctx context.Context, noteID, userID string) error {
+	if userID == "" {
+		return fmt.Errorf("userID is required")
+	}
+
+	err := s.repo.DeleteNote(ctx, noteID, userID)
+
+	if err != nil {
+		return fmt.Errorf("error while deleting the note by id %w", err)
+	}
+
+	return nil
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-
 // postgresNotesRepository is a private struct that implements the NotesRepository interface.
 // It holds a database connection pool and provides methods that operate on it.
 type postgresNotesRepository struct {
@@ -26,7 +25,6 @@ type postgresNotesRepository struct {
 func NewPostgresNotesRepository(db *pgxpool.Pool) NotesRepository {
 	return &postgresNotesRepository{db: db}
 }
-
 
 func (r *postgresNotesRepository) CreateNote(ctx context.Context, n *Note) (*Note, error) {
 	query := `
@@ -89,4 +87,47 @@ func (r *postgresNotesRepository) GetNotesByAuthor(ctx context.Context, authorID
 	}
 
 	return notes, nil
+}
+
+func (r *postgresNotesRepository) GetNoteByID(ctx context.Context, noteID, authorID string) (*Note, error) {
+	query := `
+		SELECT id, author_id, title, content, public, slug, created_at, updated_at
+		FROM notes
+		WHERE author_id = $1 AND id = $2
+	`
+
+	var n Note
+
+	err := r.db.QueryRow(ctx, query, authorID, noteID).Scan(
+		&n.ID,
+		&n.AuthorID,
+		&n.Title,
+		&n.Content,
+		&n.Public,
+		&n.Slug,
+		&n.CreatedAt,
+		&n.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("could not find the requested note: %w", err)
+	}
+
+	return &n, nil
+}
+
+func (r *postgresNotesRepository) DeleteNote(ctx context.Context, noteID, autourID string) error {
+	query := `DELETE FROM notes
+			WHERE id= $1 AND author_id = $2`
+
+	cmdtag, err := r.db.Exec(ctx, query, noteID, autourID)
+
+	if err != nil {
+		return fmt.Errorf("error while deleting note %w", err)
+	}
+
+	if cmdtag.RowsAffected() == 0 {
+		return fmt.Errorf("error could not found any note to delete")
+	}
+
+	return nil
 }
