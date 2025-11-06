@@ -35,7 +35,9 @@ func main() {
 	http.HandleFunc("/auth/login", h.Login)
 
 	http.Handle("/notes/create-note", middleware.AuthMiddleware(http.HandlerFunc(notesHandler.CreateNote)))
-	http.Handle("/notes/get-notes", middleware.AuthMiddleware(http.HandlerFunc(notesHandler.GetUserNote)))
+	http.Handle("/notes/get-notes", middleware.AuthMiddleware(http.HandlerFunc(notesHandler.GetUserNotes)))
+	http.Handle("/notes/get-note", middleware.AuthMiddleware(http.HandlerFunc(notesHandler.GetUserNoteById)))
+	http.Handle("/notes/delete", middleware.AuthMiddleware(http.HandlerFunc(notesHandler.DeleteNote)))
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
