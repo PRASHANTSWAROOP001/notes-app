@@ -38,7 +38,11 @@ func main() {
 	http.Handle("/notes/get-notes", middleware.AuthMiddleware(http.HandlerFunc(notesHandler.GetUserNotes)))
 	http.Handle("/notes/get-note", middleware.AuthMiddleware(http.HandlerFunc(notesHandler.GetUserNoteById)))
 	http.Handle("/notes/delete", middleware.AuthMiddleware(http.HandlerFunc(notesHandler.DeleteNote)))
-
+    http.Handle("/notes/update", middleware.AuthMiddleware(http.HandlerFunc(notesHandler.UpdateNote)))
+	http.Handle("/notes/share-slug", middleware.AuthMiddleware(http.HandlerFunc(notesHandler.ShareWithEmail)))
+	http.Handle("/notes", middleware.OptionalMiddleware(http.HandlerFunc(notesHandler.GetPublicAccess)))
+	http.Handle("/notes/revoke-access", middleware.AuthMiddleware(http.HandlerFunc(notesHandler.RemoveEmailShare)))
+	http.HandleFunc("/notes/public", notesHandler.GetPublicAccess)
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
 	})
