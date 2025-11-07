@@ -30,25 +30,25 @@ type NoteSummary struct {
 // this is to be used by repository like must be implemented function handling database.
 type NotesRepository interface {
 	CreateNote(ctx context.Context, n *Note) (*Note, error)
-	//UpdateNote(ctx context.Context, n *Note) (*Note, error)
+	UpdateNote(ctx context.Context, n *Note) (*NoteSummary, error)
 	DeleteNote(ctx context.Context, noteId, authorId string) error
 
 	GetNoteByID(ctx context.Context, noteID, authorID string) (*Note, error)
 	GetNotesByAuthor(ctx context.Context, authorID string) ([]*NoteSummary, error)
 
-	//GetNoteBySlug(ctx context.Context, slug string) (*Note, error)
-	//AddEmailShare(ctx context.Context, noteId, emailId string) error
-	//RemoveEmailShare(ctx context.Context, noteId, emailId string) error
-
+	GetNoteBySlug(ctx context.Context, slug string, userId, emailId *string) (*Note, error)
+	AddEmailShare(ctx context.Context, noteId, ownerID, emailId string) error
+	RemoveEmailShare(ctx context.Context, noteId, ownerID, emailId string) error
 }
 
 // this is to be implemented by services will be used via repos and handler.
 type NotesService interface {
 	CreateNote(ctx context.Context, note *Note) (*Note, error)
-	//UpdateNote(ctx context.Context, note *Note, userID string) (*Note, error)
+	UpdateNote(ctx context.Context, note *Note) (*NoteSummary, error)
 	DeleteNote(ctx context.Context, noteID, userID string) error
 	GetUserNotes(ctx context.Context, userID string) ([]*NoteSummary, error)
 	GetUserNote(ctx context.Context, noteID, userID string) (*Note, error)
-	//GetPublicNote(ctx context.Context, slug string) (*Note, error)
-	//ShareNoteViaEmail(ctx context.Context, noteID, ownerID, email string) error
+	GetPublicNote(ctx context.Context, slug string, userId, emailId *string) (*Note, error)
+	ShareNoteViaEmail(ctx context.Context, noteID, ownerID, email string) error
+	RevokeEmailAccess(ctx context.Context, noteID, ownerID, email string) error
 }
