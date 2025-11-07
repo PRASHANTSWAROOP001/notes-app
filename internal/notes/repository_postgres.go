@@ -47,6 +47,14 @@ func (r *postgresNotesRepository) CreateNote(ctx context.Context, n *Note) (*Not
 		return nil, fmt.Errorf("error while creating note: %w", err)
 	}
 
+	slug := slugifyWithID(n.Title, n.ID)
+	n.Slug = &slug
+
+	_, err = r.db.Exec(ctx, `UPDATE notes SET slug=$1 WHERE id=$2`, n.Slug, n.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	return n, nil
 }
 
@@ -130,4 +138,146 @@ func (r *postgresNotesRepository) DeleteNote(ctx context.Context, noteID, autour
 	}
 
 	return nil
+}
+
+func (r *postgresNotesRepository) UpdateNote(ctx context.Context, n *Note) (*NoteSummary, error) {
+	query := `
+		UPDATE notes
+		SET title = $3,
+		    content = $4,
+		    public = $5,
+		    slug = $6,
+		    updated_at = NOW()
+		WHERE author_id = $1 AND id = $2
+		RETURNING id, title, slug, public, created_at, author_id;
+	`
+
+	newSlug := slugifyWithID(n.Title, n.ID)
+
+	var summary NoteSummary
+	err := r.db.QueryRow(ctx, query,
+		n.AuthorID, // 🧠 now required to match logged-in user
+		n.ID,
+		n.Title,
+		n.Content,
+		n.Public,
+		newSlug,
+	).Scan(
+		&summary.ID,
+		&summary.Title,
+		&summary.Slug,
+		&summary.Public,
+		&summary.CreatedAt,
+		&summary.AuthorID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update note: %w", err)
+	}
+
+	return &summary, nil
+}
+
+func (r *postgresNotesRepository) AddEmailShare(ctx context.Context, noteID, ownerId, emailId string) error {
+	query := `
+INSERT INTO note_shares(note_id, email)
+SELECT n.id, $3
+FROM notes n
+WHERE n.id = $1 AND n.author_id = $2;
+`
+
+	cmdTag, err := r.db.Exec(ctx, query, noteID, ownerId, emailId)
+	if err != nil {
+		return fmt.Errorf("failed to share note: %w", err)
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("unauthorized or invalid note")
+	}
+
+	return nil
+}
+
+func (r *postgresNotesRepository) RemoveEmailShare(ctx context.Context, noteID, ownerID, emailID string) error {
+
+	query := `
+	DELETE FROM note_shares
+	WHERE note_id = $1 AND email = $2
+	  AND EXISTS(
+	      SELECT 1 FROM notes 
+	      WHERE id = $1 AND author_id = $3
+	  )
+	`
+
+	cmdTag, err := r.db.Exec(ctx, query, noteID, emailID, ownerID)
+	if err != nil {
+		return fmt.Errorf("failed to remove share: %w", err)
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("unauthorized or share not found")
+	}
+
+	return nil
+}
+
+func (r *postgresNotesRepository) GetNoteBySlug(
+	ctx context.Context,
+	slug string,
+	userID *string,
+	userEmail *string) (*Note, error) {
+
+	var query string
+	var args []interface{}
+
+	if userID == nil {
+		// -------------------------------
+		// Public user: can only see public notes
+		// -------------------------------
+		query = `
+            SELECT id, title, content, author_id, public, slug, created_at, updated_at
+            FROM notes
+            WHERE slug = $1
+              AND public = TRUE
+            LIMIT 1
+        `
+		args = []interface{}{slug}
+
+	} else {
+		// -------------------------------
+		// Logged-in user:
+		// owner OR shared OR public
+		// -------------------------------
+		query = `
+            SELECT n.id, n.title, n.content, n.author_id, n.public, n.slug,
+                   n.created_at, n.updated_at
+            FROM notes n
+            LEFT JOIN note_shares ns ON n.id = ns.note_id
+            WHERE n.slug = $1
+              AND (
+                    n.public = TRUE OR
+                    n.author_id = $2 OR
+                    ns.email = $3
+                  )
+            LIMIT 1
+        `
+
+		args = []interface{}{slug, *userID, *userEmail}
+	}
+
+	var note Note
+	err := r.db.QueryRow(ctx, query, args...).Scan(
+		&note.ID,
+		&note.Title,
+		&note.Content,
+		&note.AuthorID,
+		&note.Public,
+		&note.Slug,
+		&note.CreatedAt,
+		&note.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("note not found or access denied: %w", err)
+	}
+
+	return &note, nil
 }
